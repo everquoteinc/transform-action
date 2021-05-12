@@ -10,7 +10,7 @@ jobs:
     steps:
     - name: Check out repository
       uses: actions/checkout@v2
-    - name: Install required software
+    - name: Install required software for .render scripts
       run: |
         sudo snap install kustomize
         sudo snap install helm --classic
@@ -20,6 +20,8 @@ jobs:
       with:
         source-dir: config
         target-dir: deploy
+        copy-file-pattern: '*.yaml'
+        rendered-file-name: manifest.yaml
     - name: Push changes to branch
       uses: everquoteinc/git-push-action@v1
       with:
