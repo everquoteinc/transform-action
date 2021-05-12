@@ -18,10 +18,8 @@ jobs:
       id: transform
       uses: everquoteinc/transform-action@v1
       with:
-        source-dir: config
-        target-dir: deploy
-        copy-file-pattern: '*.yaml'
-        rendered-file-name: manifest.yaml
+        source-dir: foo
+        target-dir: bar
 ```
 
 ## Inputs
@@ -45,7 +43,7 @@ None.
 This action recurses through `<source-dir>` up to a max depth of `<max-depth>`.
 
 The directory structure of `<source-dir>` is replicated to `<target-dir>` except
-for branches that are pruned by the existence of special files.
+for subdirectories that are pruned by special files.
 
 The following files in the source directory govern the behavior of this action
 (in descending order of priority):
@@ -53,7 +51,7 @@ The following files in the source directory govern the behavior of this action
 | File Name | Behavior |
 |-----------|----------|
 | `.ignore` | Ignore all files in directory. Do not descend into subdirectories. |
-| `.render` | Execute `.render` file and send STDOUT to `<rendered-file-name>`. Ignore all other files in directory. Do not descend into subdirectories. |
+| `.render` | Execute `.render` file (which must be executable) and send STDOUT to `<rendered-file-name>`. Ignore all other files in directory. Do not descend into subdirectories. |
 | `<copy-file-pattern>` | Copy files. |
 
 ## Example
