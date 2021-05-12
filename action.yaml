@@ -1,0 +1,82 @@
+name: transform-action
+description: GitHub Action to transform the contents of a directory
+
+author: Simon Dickhoven <sdickhoven@everquote.com>
+
+inputs:
+  source-dir:
+    description: Source directory
+    required: true
+  target-dir:
+    description: Target directory
+    required: true
+  max-depth:
+    description: Maximum recursion depth
+    required: false
+    default: 10
+  copy-file-pattern:
+    description: Copy file pattern
+    required: false
+    default: '*'
+  rendered-file-name:
+    description: Render output file name
+    required: false
+    default: rendered
+
+runs:
+  using: composite
+  steps:
+  - shell: bash
+    env:
+      SOURCE_DIR: ${{ inputs.source-dir }}
+      TARGET_DIR: ${{ inputs.target-dir }}
+      MAX_DEPTH: ${{ inputs.max-depth }}
+      COPY_FILE_PATTERN: ${{ inputs.copy-file-pattern }}
+      RENDERED_FILE_NAME: ${{ inputs.rendered-file-name }}
+    run: |
+      set -e
+
+      transform() {
+        src_dir="$1"
+        dst_dir="$2"
+        copy_file_pattern="$3"
+        rendered_file_name="$4"
+
+        if   [ -f "$src_dir/.ignore" ]
+        then
+          echo "::debug::Ignore '$src_dir'."
+        elif [ -f "$src_dir/.render" ]
+        then
+          echo "::debug::Create '$dst_dir'."
+          mkdir "$dst_dir"
+          echo "::debug::Render '$src_dir'."
+          (cd "$src_dir" && ./.render) > "$dst_dir/$rendered_file_name"
+        else
+          echo "::debug::Create '$dst_dir'."
+          mkdir "$dst_dir"
+          echo "::debug::Copy '$src_dir'."
+          find -L "$src_dir" -type f -maxdepth 1 -name "$copy_file_pattern" -exec cp "{}" "$dst_dir/." \;
+        fi
+      }
+
+      source_dir=$(sed -E 's#^/+|/+$|\.\./|/\.\.##g' <<< "$SOURCE_DIR")
+      target_dir=$(sed -E 's#^/+|/+$|\.\./|/\.\.##g' <<< "$TARGET_DIR")
+
+      echo "::debug::Check input."
+      [ -n "$source_dir" ]                       || (echo "::debug::Undefined SOURCE_DIR."; exit 1)
+      [ -n "$target_dir" ]                       || (echo "::debug::Undefined TARGET_DIR."; exit 1)
+      [ -d "$source_dir" ]                       || (echo "::debug::Not a directory SOURCE_DIR: '$source_dir'."; exit 1)
+      [ -d "$target_dir" -o ! -e "$target_dir" ] || (echo "::debug::Not a directory TARGET_DIR: '$target_dir'."; exit 1)
+      [ "$source_dir" != "$target_dir" ]         || (echo "::debug::Not distinct SOURCE_DIR,TARGET_DIR: '$source_dir'."; exit 1)
+      [ "$MAX_DEPTH" -gt 0 ] 2>/dev/null         || (echo "::debug::Invalid MAX_DEPTH: '$MAX_DEPTH'."; exit 1)
+      [ -n "$RENDERED_FILE_NAME" ]               || (echo "::debug::Undefined RENDERED_FILE_NAME."; exit 1)
+
+      echo "::debug::Initialize target directory."
+      rm -rf "$target_dir"
+
+      echo "::debug::Recurse through source directory."
+      find -L "$source_dir" -type d -maxdepth "$MAX_DEPTH" \( -exec [ -f "{}/.ignore" -o -f "{}/.render" ] \; -prune -or -true \) -print0 | \
+      while IFS= read -r -d $'\0' dir; do transform "$dir" "${dir/$source_dir/$target_dir}" "$COPY_FILE_PATTERN" "$RENDERED_FILE_NAME"; done
+
+      touch "$target_dir/.__DO_NOT_MODIFY__"
+
