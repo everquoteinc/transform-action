@@ -18,8 +18,14 @@ jobs:
       id: transform
       uses: everquoteinc/transform-action@v1
       with:
-        source-dir: foo
-        target-dir: bar
+        source-dir: config
+        target-dir: deploy
+    - name: Push changes to branch
+      uses: everquoteinc/git-push-action@v1
+      with:
+        commit-message: add auto-generated deployment manifests
+        file-pattern: 'deploy/'
+      if: steps.transform.outcome == 'success'
 ```
 
 ## Inputs
