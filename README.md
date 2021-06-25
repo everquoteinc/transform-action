@@ -59,8 +59,8 @@ The following files in the source directory govern the behavior of this action
 | File Name | Behavior |
 |-----------|----------|
 | `.ignore` | Ignore all files in directory. Do not descend into subdirectories. |
-| `.render` | Execute `.render` file (which must be executable) and send STDOUT to `<rendered-file-name>`. Ignore all other files in directory. Do not descend into subdirectories. |
-| `<copy-file-pattern>` | Copy files. |
+| `.render` | Execute `.render` file (which must be executable) and send STDOUT to `<rendered-file-name>` in `<target-dir>`. Ignore all other files in directory. Do not descend into subdirectories. |
+| `<copy-file-pattern>` | Copy files to `<target-dir>`. |
 
 ## Example
 
