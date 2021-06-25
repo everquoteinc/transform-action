@@ -112,3 +112,11 @@ deploy
         |__ b.yaml
 ```
 
+The `.render` file in the above example could be something like this:
+
+```bash
+#!/usr/bin/env bash
+
+kustomize build .
+```
+
