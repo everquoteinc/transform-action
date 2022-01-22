@@ -4,6 +4,10 @@ GitHub Action to transform the contents of a directory
 ## Usage
 
 ```yaml
+permissions:
+  checks: write
+  contents: write
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
@@ -28,6 +32,21 @@ jobs:
         commit-message: add auto-generated deployment manifests
         file-pattern: 'deploy/'
       if: steps.transform.outcome == 'success'
+    - name: Set status
+      shell: bash
+      env:
+        GITHUB_REPO: ${{ github.repository }}
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        BUILD_COMMIT=$(git rev-parse HEAD)
+        DATA=$(printf '{"name":"deploy","head_sha":"%s","status":"completed","conclusion":"success"}' "$BUILD_COMMIT")
+        curl --silent \
+             --header "Authorization: Bearer $GITHUB_TOKEN" \
+             --header "Accept: application/vnd.github.v3+json" \
+             --header "Content-Type: application/json" \
+             --request "POST" --data "$DATA" \
+             "https://api.github.com/repos/$GITHUB_REPO/check-runs"
+      if: steps.push-changes.outcome == 'success'
 ```
 
 ## Inputs
