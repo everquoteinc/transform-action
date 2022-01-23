@@ -59,15 +59,16 @@ runs:
         fi
       }
 
-      source_dir=$(sed -E 's#^/+|/+$|\.\./|/\.\.##g' <<< "$SOURCE_DIR")
-      target_dir=$(sed -E 's#^/+|/+$|\.\./|/\.\.##g' <<< "$TARGET_DIR")
+      echo "::debug::Canonicalize directories."
+      source_dir=$(cd -P -- "$(dirname -- "$SOURCE_DIR")" && printf "%s/%s" "$(pwd -P)" "$(basename -- "$SOURCE_DIR")")
+      target_dir=$(cd -P -- "$(dirname -- "$TARGET_DIR")" && printf "%s/%s" "$(pwd -P)" "$(basename -- "$TARGET_DIR")")
 
       echo "::debug::Check input."
-      [ -n "$source_dir" ]                       || (echo "::debug::Undefined SOURCE_DIR."; exit 1)
-      [ -n "$target_dir" ]                       || (echo "::debug::Undefined TARGET_DIR."; exit 1)
-      [ -d "$source_dir" ]                       || (echo "::debug::Not a directory SOURCE_DIR: '$source_dir'."; exit 1)
-      [ -d "$target_dir" -o ! -e "$target_dir" ] || (echo "::debug::Not a directory TARGET_DIR: '$target_dir'."; exit 1)
-      [ "$source_dir" != "$target_dir" ]         || (echo "::debug::Not distinct SOURCE_DIR,TARGET_DIR: '$source_dir'."; exit 1)
+      [ -n "$SOURCE_DIR" ]                       || (echo "::debug::Undefined SOURCE_DIR."; exit 1)
+      [ -n "$TARGET_DIR" ]                       || (echo "::debug::Undefined TARGET_DIR."; exit 1)
+      [ -d "$source_dir" ]                       || (echo "::debug::Not a directory SOURCE_DIR: '$SOURCE_DIR'."; exit 1)
+      [ -d "$target_dir" -o ! -e "$target_dir" ] || (echo "::debug::Not a directory TARGET_DIR: '$TARGET_DIR'."; exit 1)
+      [ "$source_dir" != "$target_dir" ]         || (echo "::debug::Not distinct SOURCE_DIR,TARGET_DIR: '$SOURCE_DIR'."; exit 1)
       [ "$MAX_DEPTH" -gt 0 ] 2>/dev/null         || (echo "::debug::Invalid MAX_DEPTH: '$MAX_DEPTH'."; exit 1)
       [ -n "$RENDERED_FILE_NAME" ]               || (echo "::debug::Undefined RENDERED_FILE_NAME."; exit 1)
 

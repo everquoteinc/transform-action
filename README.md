@@ -99,15 +99,19 @@ config
 |   |__ .ignore
 |   |__ .render
 |   |__ app.yaml
+|   |__ kustomization.yaml
 |   |__ component
 |       |__ a.yaml
 |       |__ b.yaml
+|       |__ kustomization.yaml
 |__ node2
 |   |__ .render
 |   |__ app.yaml
+|   |__ kustomization.yaml
 |   |__ component
 |       |__ a.yaml
 |       |__ b.yaml
+|       |__ kustomization.yaml
 |__ node3
     |__ app.md
     |__ app.yaml
