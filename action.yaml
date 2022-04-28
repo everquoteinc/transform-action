@@ -50,7 +50,7 @@ runs:
           echo "::debug::Create '$dst_dir'."
           mkdir "$dst_dir"
           echo "::debug::Render '$src_dir'."
-          (cd "$src_dir" && ./.render) > "$dst_dir/$rendered_file_name"
+          (cd "$src_dir" && ./.render) > "$dst_dir/$rendered_file_name" &
         else
           echo "::debug::Create '$dst_dir'."
           mkdir "$dst_dir"
@@ -78,6 +78,13 @@ runs:
       echo "::debug::Recurse through source directory."
       find -L "$source_dir" -type d -maxdepth "$MAX_DEPTH" \( -exec [ -f "{}/.ignore" -o -f "{}/.render" ] \; -prune -or -true \) -print0 | \
       while IFS= read -r -d $'\0' dir; do transform "$dir" "${dir/$source_dir/$target_dir}" "$COPY_FILE_PATTERN" "$RENDERED_FILE_NAME"; done
+
+      find -L "$target_dir" -type d -mindepth 2 -maxdepth "$MAX_DEPTH" \( -exec [ -f "{}/.ignore" -o -f "{}/.render" ] \; -prune -or -true \) -print0 | \
+      while IFS= read -r -d $'\0' dir; do
+          while [ ! "${dir##*"/"}" == "helm" ] && [ ! -f "$dir/$RENDERED_FILE_NAME" ] | [ ! -s "$dir/$RENDERED_FILE_NAME" ] ; do
+              sleep 0.2
+          done
+      done
 
       touch "$target_dir/.__DO_NOT_MODIFY__"
 
