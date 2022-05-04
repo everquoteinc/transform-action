@@ -57,7 +57,8 @@ This action accepts the following input parameters:
 |-----------|----------|---------|-------------|
 | `source-dir` | true | | Source directory |
 | `target-dir` | true | | Target directory |
-| `max-depth`  | false | `10` | Maximum recursion depth |
+| `max-depth` | false | `10` | Maximum recursion depth |
+| `max-concurrency` | false | `1` | Maximum number of subshells to spawn |
 | `copy-file-pattern` | false | `*` | Copy file pattern |
 | `rendered-file-name` | false | `rendered` | Render output file name |
 

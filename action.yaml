@@ -14,6 +14,10 @@ inputs:
     description: Maximum recursion depth
     required: false
     default: 10
+  max-concurrency:
+    description: Maximum number of subshells to spawn
+    required: false
+    default: 1
   copy-file-pattern:
     description: Copy file pattern
     required: false
@@ -31,6 +35,7 @@ runs:
       SOURCE_DIR: ${{ inputs.source-dir }}
       TARGET_DIR: ${{ inputs.target-dir }}
       MAX_DEPTH: ${{ inputs.max-depth }}
+      MAX_CONCURRENCY: ${{ inputs.max-concurrency }}
       COPY_FILE_PATTERN: ${{ inputs.copy-file-pattern }}
       RENDERED_FILE_NAME: ${{ inputs.rendered-file-name }}
     run: |
@@ -47,37 +52,47 @@ runs:
           echo "::debug::Ignore '$src_dir'."
         elif [ -f "$src_dir/.render" ]
         then
-          echo "::debug::Create '$dst_dir'."
-          mkdir "$dst_dir"
           echo "::debug::Render '$src_dir'."
           (cd "$src_dir" && ./.render) > "$dst_dir/$rendered_file_name"
         else
-          echo "::debug::Create '$dst_dir'."
-          mkdir "$dst_dir"
           echo "::debug::Copy '$src_dir'."
           find -L "$src_dir" -type f -maxdepth 1 -name "$copy_file_pattern" -exec cp "{}" "$dst_dir/." \;
         fi
       }
 
+      waitpids() {
+        echo "::debug::Waiting for subshell(s) to exit."
+        for pid in $@; do wait $pid; done
+      }
+
       echo "::debug::Canonicalize directories."
-      source_dir=$(cd -P -- "$(dirname -- "$SOURCE_DIR")" && printf "%s/%s" "$(pwd -P)" "$(basename -- "$SOURCE_DIR")")
-      target_dir=$(cd -P -- "$(dirname -- "$TARGET_DIR")" && printf "%s/%s" "$(pwd -P)" "$(basename -- "$TARGET_DIR")")
+      src_prefix=$(cd -P -- "$(dirname -- "$SOURCE_DIR")" && printf "%s/%s" "$(pwd -P)" "$(basename -- "$SOURCE_DIR")")
+      dst_prefix=$(cd -P -- "$(dirname -- "$TARGET_DIR")" && printf "%s/%s" "$(pwd -P)" "$(basename -- "$TARGET_DIR")")
 
       echo "::debug::Check input."
-      [ -n "$SOURCE_DIR" ]                       || (echo "::debug::Undefined SOURCE_DIR."; exit 1)
-      [ -n "$TARGET_DIR" ]                       || (echo "::debug::Undefined TARGET_DIR."; exit 1)
-      [ -d "$source_dir" ]                       || (echo "::debug::Not a directory SOURCE_DIR: '$SOURCE_DIR'."; exit 1)
-      [ -d "$target_dir" -o ! -e "$target_dir" ] || (echo "::debug::Not a directory TARGET_DIR: '$TARGET_DIR'."; exit 1)
-      [ "$source_dir" != "$target_dir" ]         || (echo "::debug::Not distinct SOURCE_DIR,TARGET_DIR: '$SOURCE_DIR'."; exit 1)
-      [ "$MAX_DEPTH" -gt 0 ] 2>/dev/null         || (echo "::debug::Invalid MAX_DEPTH: '$MAX_DEPTH'."; exit 1)
-      [ -n "$RENDERED_FILE_NAME" ]               || (echo "::debug::Undefined RENDERED_FILE_NAME."; exit 1)
+      [ -n "$SOURCE_DIR" ]                       || (echo "ERROR: Undefined SOURCE_DIR.";                              exit 1)
+      [ -n "$TARGET_DIR" ]                       || (echo "ERROR: Undefined TARGET_DIR.";                              exit 1)
+      [ -d "$src_prefix" ]                       || (echo "ERROR: Not a directory SOURCE_DIR: '$SOURCE_DIR'.";         exit 1)
+      [ -d "$dst_prefix" -o ! -e "$dst_prefix" ] || (echo "ERROR: Not a directory TARGET_DIR: '$TARGET_DIR'.";         exit 1)
+      [ "$src_prefix" != "$dst_prefix" ]         || (echo "ERROR: Not distinct SOURCE_DIR,TARGET_DIR: '$SOURCE_DIR'."; exit 1)
+      [ "$MAX_DEPTH" -gt 0 ] 2>/dev/null         || (echo "ERROR: Invalid MAX_DEPTH: '$MAX_DEPTH'.";                   exit 1)
+      [ "$MAX_CONCURRENCY" -gt 0 ] 2>/dev/null   || (echo "ERROR: Invalid MAX_CONCURRENCY: '$MAX_CONCURRENCY'.";       exit 1)
+      [ -n "$RENDERED_FILE_NAME" ]               || (echo "ERROR: Undefined RENDERED_FILE_NAME.";                      exit 1)
 
       echo "::debug::Initialize target directory."
-      rm -rf "$target_dir"
+      rm -rf "$dst_prefix"
 
       echo "::debug::Recurse through source directory."
-      find -L "$source_dir" -type d -maxdepth "$MAX_DEPTH" \( -exec [ -f "{}/.ignore" -o -f "{}/.render" ] \; -prune -or -true \) -print0 | \
-      while IFS= read -r -d $'\0' dir; do transform "$dir" "${dir/$source_dir/$target_dir}" "$COPY_FILE_PATTERN" "$RENDERED_FILE_NAME"; done
+      while read src_dir
+      do
+        dst_dir=${src_dir/$src_prefix/$dst_prefix}
+        echo "::debug::Create '$dst_dir'."
+        mkdir "$dst_dir"
+        transform "$src_dir" "$dst_dir" "$COPY_FILE_PATTERN" "$RENDERED_FILE_NAME" &
+        pids="$pids $!"; npid=$(wc -w <<< $pids)
+        if [ $(($npid % $MAX_CONCURRENCY)) -eq 0 ]; then waitpids $pids; unset pids; fi
+      done <<< "$(find -L "$src_prefix" -type d -maxdepth "$MAX_DEPTH" \( -exec [ -f "{}/.ignore" -o -f "{}/.render" ] \; -prune -or -true \) -print)"
+      waitpids $pids
 
-      touch "$target_dir/.__DO_NOT_MODIFY__"
+      touch "$dst_prefix/.__DO_NOT_MODIFY__"
 
